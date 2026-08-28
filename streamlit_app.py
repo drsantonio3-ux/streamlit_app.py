@@ -30,16 +30,12 @@ st.markdown("""
 
 st.title("📦 Célula 03 (BMS) - Consulta e Controle de Loggers")
 
-# ==============================================================================
-# COLE O LINK DA SUA PLANILHA DO GOOGLE SHEETS ENTRE AS ASPAS ABAIXO:
-# Exemplo: https://docs.google.com/spreadsheets/d/1ABC123xyz/edit#gid=0
-# ==============================================================================
-URL_GOOGLE_SHEETS = "https://docs.google.com/spreadsheets/d/1SEU_CODIGO_REAL_AQUI/edit"
+# SEU LINK DO GOOGLE SHEETS
+URL_GOOGLE_SHEETS = "https://docs.google.com/spreadsheets/d/1F4DCJd8KxS0JdGMo4bQnR8VwzW6mqyoyWcxM_zc_Ok4/edit?usp=sharing"
 
 def converter_url_csv(url):
-    if "/edit" in url:
-        return url.split("/edit")[0] + "/gviz/tq?tqx=out:csv&sheet=loggers"
-    return url
+    sheet_id = url.split("/d/")[1].split("/")[0]
+    return f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv"
 
 @st.cache_data(ttl=5)
 def carregar_dados_nuvem(url):
@@ -58,38 +54,26 @@ def carregar_dados_nuvem(url):
         
     return df
 
-# Inicializa sessão se necessário
+# Carregamento dos dados
 if "df_loggers" not in st.session_state:
     try:
         st.session_state.df_loggers = carregar_dados_nuvem(URL_GOOGLE_SHEETS)
     except Exception as e:
         st.session_state.df_loggers = None
 
-# Upload alternativo como backup caso a planilha do Google não esteja pública
 if st.session_state.df_loggers is None:
-    st.warning("⚠️ Não foi possível ler a planilha online. Verifique se o link está 'Público (Qualquer pessoa com o link)' ou faça o upload manual da planilha abaixo:")
-    file_upload = st.file_uploader("Carregue a planilha DADOS BMS.xlsx", type=["xlsx", "xls"])
-    if file_upload:
-        df = pd.read_excel(file_upload, sheet_name="loggers")
-        df.columns = [str(c).strip() for c in df.columns]
-        for col in df.columns:
-            if df[col].dtype == 'object':
-                df[col] = df[col].astype(str).str.strip()
-        if "DELIVERY" not in df.columns:
-            df["DELIVERY"] = ""
-        if "Status_Uso" not in df.columns:
-            df["Status_Uso"] = "DISPONÍVEL"
-        st.session_state.df_loggers = df
+    st.error("⚠️ Não foi possível carregar a planilha online. Verifique as permissões do Google Drive.")
+    if st.button("🔄 Tentar Novamente"):
+        st.cache_data.clear()
         st.rerun()
-
-if st.session_state.df_loggers is not None:
+else:
     df = st.session_state.df_loggers
 
-    col_serie = "Série" if "Série" in df.columns else "Serie"
-    col_desc = "Descricao" if "Descricao" in df.columns else "Descrição"
-    col_rest = "Restricao" if "Restricao" in df.columns else "Restrição"
-    col_palete = "Palete"
-    col_id = "Identificacao Estoque" if "Identificacao Estoque" in df.columns else "Identificação Estoque"
+    col_serie = "Série" if "Série" in df.columns else ("Serie" if "Serie" in df.columns else df.columns[7])
+    col_desc = "Descricao" if "Descricao" in df.columns else ("Descrição" if "Descrição" in df.columns else df.columns[5])
+    col_rest = "Restricao" if "Restricao" in df.columns else ("Restrição" if "Restrição" in df.columns else df.columns[2])
+    col_palete = "Palete" if "Palete" in df.columns else df.columns[8]
+    col_id = "Identificacao Estoque" if "Identificacao Estoque" in df.columns else ("Identificação Estoque" if "Identificação Estoque" in df.columns else df.columns[15])
 
     df_disponiveis = df[(df[col_rest] == "LIBERADO") & (df["Status_Uso"] == "DISPONÍVEL")]
 
