@@ -34,7 +34,7 @@ st.title("📦 Célula 03 (BMS) - Consulta e Controle de Loggers")
 # COLE O LINK DA SUA PLANILHA DO GOOGLE SHEETS ENTRE AS ASPAS ABAIXO:
 # Exemplo: https://docs.google.com/spreadsheets/d/1ABC123xyz/edit#gid=0
 # ==============================================================================
-URL_GOOGLE_SHEETS = "https://docs.google.com/spreadsheets/d/SEU_LINK_AQUI/edit"
+URL_GOOGLE_SHEETS = "https://docs.google.com/spreadsheets/d/1SEU_CODIGO_REAL_AQUI/edit"
 
 def converter_url_csv(url):
     if "/edit" in url:
