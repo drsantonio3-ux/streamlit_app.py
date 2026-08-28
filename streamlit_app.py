@@ -4,7 +4,7 @@ import pandas as pd
 st.set_page_config(page_title="Gerenciador de Loggers - DRS Group", layout="wide")
 
 st.title("📦 Célula 03 (BMS) - Controle de Loggers")
-st.subheader("Painel de Baixa de Palete e ID Estoque por Delivery")
+st.subheader("Painel de Controle de Palete, ID Estoque e Delivery")
 
 # Inicialização da base na memória
 if "df_loggers" not in st.session_state:
@@ -16,22 +16,22 @@ file_upload = st.file_uploader("Carregue a planilha DADOS BMS.xlsx", type=["xlsx
 if file_upload and st.session_state.df_loggers is None:
     df = pd.read_excel(file_upload, sheet_name="loggers")
     
-    # Tratamento simples dos dados
+    # Limpeza dos textos
     cols_str = ["Descricao", "Restricao", "Palete", "Identificacao Estoque", "Série"]
     for col in cols_str:
         if col in df.columns:
             df[col] = df[col].astype(str).str.strip()
             
-    df["Status_Uso"] = "DISPONÍVEL"
-    df["Delivery"] = ""
+    # Garante a criação da coluna Delivery
+    df["DELIVERY"] = ""
     st.session_state.df_loggers = df
     st.rerun()
 
 if st.session_state.df_loggers is not None:
     df = st.session_state.df_loggers
 
-    # Filtra apenas itens LIBERADOS e DISPONÍVEIS
-    df_liberados = df[(df["Restricao"] == "LIBERADO") & (df["Status_Uso"] == "DISPONÍVEL")]
+    # Filtra apenas itens LIBERADOS
+    df_liberados = df[df["Restricao"] == "LIBERADO"].copy()
 
     st.markdown("---")
 
@@ -41,60 +41,28 @@ if st.session_state.df_loggers is not None:
         "TEMPTALE ULTRA 15-25C - SENSITECH"
     ]
     
-    tab1, tab2, tab3, tab4 = st.tabs(categorias + ["📜 Histórico de Baixas"])
+    tab1, tab2, tab3 = st.tabs(categorias)
 
     def render_categoria(cat_name):
-        dados_cat = df_liberados[df_liberados["Descricao"] == cat_name]
-        st.write(f"**Loggers Liberados Disponíveis:** {len(dados_cat)}")
+        dados_cat = df_liberados[df_liberados["Descricao"] == cat_name].copy()
         
-        if len(dados_cat) == 0:
-            st.warning("Nenhum logger disponível nesta categoria.")
-            return
-
-        # Menu para selecionar o Logger desejado
-        opcoes = dados_cat.apply(
-            lambda x: f"Série: {x['Série']} | Palete: {x['Palete']} | ID Estoque: {x['Identificacao Estoque']}", axis=1
-        ).tolist()
+        st.write(f"**Total nesta categoria:** {len(dados_cat)}")
+        st.info("💡 Você pode digitar/colar o **DELIVERY** diretamente na célula da tabela abaixo:")
         
-        selecionado = st.selectbox(f"Selecione o Logger ({cat_name}):", opcoes, key=cat_name)
+        # Exibe a tabela editável sem a coluna Endereço e com a coluna DELIVERY editável
+        colunas_exibir = ["Série", "Descricao", "Restricao", "Palete", "Identificacao Estoque", "DELIVERY"]
         
-        if selecionado:
-            serie_sel = selecionado.split("|")[0].replace("Série:", "").strip()
-            row = dados_cat[dados_cat["Série"] == serie_sel].iloc[0]
-            
-            # Campo do DELIVERY diretamente na hora de dar a baixa
-            st.markdown("#### 📝 Informação de Saída")
-            delivery_val = st.text_input(
-                "Digite o número do DELIVERY para este registro:", 
-                key=f"del_input_{serie_sel}",
-                placeholder="Cole ou digite o Delivery da Packing List..."
-            )
-            
-            # Exibição dos dados em destaque
-            c1, c2, c3, c4 = st.columns(4)
-            c1.metric("Série", row["Série"])
-            c2.metric("Descrição", row["Descricao"])
-            c3.metric("Restrição", row["Restricao"])
-            c4.metric("Palete", row["Palete"])
-            
-            st.metric("Identificação Estoque", row["Identificacao Estoque"])
-
-            # Botão de Baixa
-            if st.button(f"🚀 Dar Baixa no Logger ({serie_sel})", type="primary", key=f"btn_{serie_sel}"):
-                if not delivery_val.strip():
-                    st.error("⚠️ Por favor, informe o **DELIVERY** antes de dar baixa!")
-                else:
-                    idx = df[df["Série"] == serie_sel].index[0]
-                    st.session_state.df_loggers.at[idx, "Status_Uso"] = "BAIXADO / UTILIZADO"
-                    st.session_state.df_loggers.at[idx, "Delivery"] = delivery_val.strip()
-                    st.success(f"Baixa concluída! Logger **{serie_sel}** (Palete {row['Palete']}) vinculado ao Delivery **{delivery_val}**.")
-                    st.rerun()
-
-        st.markdown("#### Tabela Disponível")
-        st.dataframe(
-            dados_cat[["Série", "Descricao", "Restricao", "Palete", "Identificacao Estoque", "Endereco"]],
-            use_container_width=True
+        edited_df = st.data_editor(
+            dados_cat[colunas_exibir],
+            use_container_width=True,
+            disabled=["Série", "Descricao", "Restricao", "Palete", "Identificacao Estoque"],
+            key=f"editor_{cat_name}"
         )
+        
+        # Atualiza as alterações do DELIVERY no banco principal
+        if not edited_df.equals(dados_cat[colunas_exibir]):
+            for idx, row in edited_df.iterrows():
+                st.session_state.df_loggers.loc[idx, "DELIVERY"] = row["DELIVERY"]
 
     with tab1:
         render_categoria("TAGALERT 2-8C - SENSITECH")
@@ -104,19 +72,3 @@ if st.session_state.df_loggers is not None:
 
     with tab3:
         render_categoria("TEMPTALE ULTRA 15-25C - SENSITECH")
-
-    with tab4:
-        st.markdown("### Loggers Utilizados com Delivery Registrado")
-        df_baixas = df[df["Status_Uso"] == "BAIXADO / UTILIZADO"]
-        
-        st.dataframe(
-            df_baixas[["Delivery", "Série", "Descricao", "Restricao", "Palete", "Identificacao Estoque"]],
-            use_container_width=True
-        )
-        
-        st.download_button(
-            label="📥 Exportar Relatório de Baixas (CSV)",
-            data=df_baixas.to_csv(index=False).encode('utf-8'),
-            file_name="LOGGERS_BAIXADOS_DELIVERY.csv",
-            mime="text/csv"
-        )
