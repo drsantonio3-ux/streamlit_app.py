@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+from pathlib import Path
 
 st.set_page_config(page_title="Gerenciador de Loggers - Célula 03", layout="wide")
 
@@ -33,6 +34,8 @@ st.code("056998982001260", language=None)
 
 # SEU LINK DO GOOGLE SHEETS
 URL_GOOGLE_SHEETS = "https://docs.google.com/spreadsheets/d/1F4DCJd8KxS0JdGMo4bQnR8VwzW6mqyoyWcxM_zc_Ok4/edit?usp=sharing"
+ARQUIVOS_DADOS = [Path(__file__).with_name(nome) for nome in ("loggers.csv", "loggers.xlsx")]
+ARQUIVO_DADOS = next((arquivo for arquivo in ARQUIVOS_DADOS if arquivo.exists()), ARQUIVOS_DADOS[0])
 
 def converter_url_csv(url):
     sheet_id = url.split("/d/")[1].split("/")[0]
@@ -57,10 +60,26 @@ def carregar_dados_nuvem(url):
         
     return df
 
+def carregar_dados():
+    if ARQUIVO_DADOS.exists():
+        if ARQUIVO_DADOS.suffix == ".xlsx":
+            df = pd.read_excel(ARQUIVO_DADOS)
+        else:
+            df = pd.read_csv(ARQUIVO_DADOS)
+        df.columns = [str(c).strip() for c in df.columns]
+        return df
+    return carregar_dados_nuvem(URL_GOOGLE_SHEETS)
+
+def salvar_dados(df):
+    if ARQUIVO_DADOS.suffix == ".xlsx":
+        df.to_excel(ARQUIVO_DADOS, index=False)
+    else:
+        df.to_csv(ARQUIVO_DADOS, index=False)
+
 # Carregamento dos dados
 if "df_loggers" not in st.session_state:
     try:
-        st.session_state.df_loggers = carregar_dados_nuvem(URL_GOOGLE_SHEETS)
+        st.session_state.df_loggers = carregar_dados()
     except Exception as e:
         st.session_state.df_loggers = None
 
@@ -134,6 +153,7 @@ else:
                             idx = idx_match[0]
                             st.session_state.df_loggers.at[idx, "Status_Uso"] = "UTILIZADO"
                             st.session_state.df_loggers.at[idx, "DELIVERY"] = deliv_input.strip()
+                            salvar_dados(st.session_state.df_loggers)
                             st.success(f"Baixa concluída! Logger **{serie_extraida}** vinculado ao Delivery **{deliv_input}**.")
                             st.rerun()
 
@@ -163,6 +183,7 @@ else:
                 
                 st.session_state.df_loggers.at[idx_est, "Status_Uso"] = "DISPONÍVEL"
                 st.session_state.df_loggers.at[idx_est, "DELIVERY"] = ""
+                salvar_dados(st.session_state.df_loggers)
                 st.success(f"Logger **{serie_estorno}** estornado e retornado ao estoque!")
                 st.rerun()
 
