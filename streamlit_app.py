@@ -29,6 +29,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 st.title("📦 Célula 03 (BMS) - Consulta e Controle de Loggers")
+st.code("056998982001260", language=None)
 
 # SEU LINK DO GOOGLE SHEETS
 URL_GOOGLE_SHEETS = "https://docs.google.com/spreadsheets/d/1F4DCJd8KxS0JdGMo4bQnR8VwzW6mqyoyWcxM_zc_Ok4/edit?usp=sharing"
@@ -49,6 +50,8 @@ def carregar_dados_nuvem(url):
             
     if "DELIVERY" not in df.columns:
         df["DELIVERY"] = ""
+    else:
+        df["DELIVERY"] = df["DELIVERY"].astype("object")
     if "Status_Uso" not in df.columns:
         df["Status_Uso"] = "DISPONÍVEL"
         
